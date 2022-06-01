@@ -43,7 +43,7 @@ python -m venv venv
 ```
 
 ```
-source venv/Scripts/activate
+. venv/Scripts/activate
 ```
 
 Установить зависимости из файла requirements.txt:
@@ -67,14 +67,6 @@ python manage.py migrate
 ```
 python manage.py runserver
 ```
-
-## Команды для загрузки данных в базу данных:
-
-Загрузить данные в базу
-```
-python manage.py loaddata fixtures
-```
-
 
 ## Подробную документацию с примерами запросов вы найдете по адресу:
 http://127.0.0.1:8000/redoc/
