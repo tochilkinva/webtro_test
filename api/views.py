@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Post
+from .models import LikeStatus, Post, PostUserLike
 from .serializers import LoginSerializer, PostSerializer, SignUpSerializer
 
 User = get_user_model()
@@ -14,8 +14,6 @@ User = get_user_model()
 class IsOwnerOrReadOnly(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
-            return True
-        if request.method == 'POST':
             return True
         return obj.author == request.user
 
@@ -31,7 +29,7 @@ class PostViewSet(viewsets.ModelViewSet):
         serializer.save(author=self.request.user)
 
     @action(
-        methods=["get"],
+        methods=["post"],
         detail=True,
         url_path="like",
         url_name="like",
@@ -39,17 +37,55 @@ class PostViewSet(viewsets.ModelViewSet):
     )
     def like(self, request, pk=None, *args, **kwargs):
         """
-        Отправьте GET чтобы like пост
+        Отправьте POST чтобы like пост
         """
-        if request.method == "GET":
+        if request.method == "POST":
             post = get_object_or_404(Post, pk=pk)
-            post.likes += 1
+            user = request.user
+            # проверить есть ли оценка от него
+            # если нет создать положительную и добавить лайк в пост и выйти
+            if not PostUserLike.objects.filter(user=user, post=post,).exists():
+                post_user_like = PostUserLike.objects.create(
+                    user=user,
+                    post=post,
+                    like=LikeStatus.LIKE
+                )
+                post_user_like.save()
+                post.likes += 1
+                post.save()
+                return Response(
+                    f"{user} поставил Like посту: {post}",
+                    status=status.HTTP_200_OK,
+                )
+
+            post_user_like = PostUserLike.objects.get(user=user, post=post,)
+            # если нейтральная перевести в положительную
+            if post_user_like.like == LikeStatus.NEUTRAL:
+                post_user_like.like = LikeStatus.LIKE
+                post_user_like.save()
+                post.likes += 1
+                post.save()
+                return redirect(f'/posts/{pk}/')
+
+            # если положительная перевести на нейтральную
+            if post_user_like.like == LikeStatus.LIKE:
+                post.likes -= 1
+                post_user_like.like = LikeStatus.NEUTRAL
+            # если отрицательная перевести на положительную
+            else:
+                post.likes += 2
+                post_user_like.like = LikeStatus.LIKE
+            post_user_like.save()
             post.save()
             return redirect(f'/posts/{pk}/')
-        return None
+
+        return Response(
+            "Метод не реализован",
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
 
     @action(
-        methods=["get"],
+        methods=["post"],
         detail=True,
         url_path="unlike",
         url_name="unlike",
@@ -57,14 +93,52 @@ class PostViewSet(viewsets.ModelViewSet):
     )
     def unlike(self, request, pk=None, *args, **kwargs):
         """
-        Отправьте GET чтобы unlike пост
+        Отправьте POST чтобы unlike пост
         """
-        if request.method == "GET":
+        if request.method == "POST":
             post = get_object_or_404(Post, pk=pk)
-            post.likes -= 1
+            user = request.user
+            # проверить есть ли оценка от него
+            # если нет создать положительную и добавить лайк в пост и выйти
+            if not PostUserLike.objects.filter(user=user, post=post,).exists():
+                post_user_like = PostUserLike.objects.create(
+                    user=user,
+                    post=post,
+                    like=LikeStatus.LIKE
+                )
+                post_user_like.save()
+                post.likes -= 1
+                post.save()
+                return Response(
+                    f"{user} поставил Unlike посту: {post}",
+                    status=status.HTTP_200_OK,
+                )
+
+            post_user_like = PostUserLike.objects.get(user=user, post=post,)
+            # если нейтральная перевести в отрицательную
+            if post_user_like.like == LikeStatus.NEUTRAL:
+                post_user_like.like = LikeStatus.UNLIKE
+                post_user_like.save()
+                post.likes -= 1
+                post.save()
+                return redirect(f'/posts/{pk}/')
+
+            # если положительная перевести на отрицательную
+            if post_user_like.like == LikeStatus.LIKE:
+                post.likes -= 2
+                post_user_like.like = LikeStatus.UNLIKE
+            # если отрицательная перевести на нейтральную
+            else:
+                post.likes += 1
+                post_user_like.like = LikeStatus.NEUTRAL
+            post_user_like.save()
             post.save()
             return redirect(f'/posts/{pk}/')
-        return None
+
+        return Response(
+            "Метод не реализован",
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
 
 
 class SignUpView(APIView):

@@ -36,3 +36,40 @@ class Post(models.Model):
 
     def __str__(self):
         return self.text[:20]
+
+
+class LikeStatus(models.IntegerChoices):
+    LIKE = 1
+    UNLIKE = -1
+    NEUTRAL = 0
+
+
+class PostUserLike(models.Model):
+
+    like = models.IntegerField(
+        verbose_name='Одобрение поста пользователем',
+        choices=LikeStatus.choices,
+        default=LikeStatus.NEUTRAL
+    )
+
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='postuserlikes',
+        verbose_name='Пост',
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='postuserlikes',
+        verbose_name='Пользователь',
+    )
+
+    class Meta:
+        ordering = ('user', 'post',)
+        verbose_name = 'Одобрение поста'
+        verbose_name_plural = 'Одобрение постов'
+
+    def __str__(self):
+        return f'{self.post} - {self.user}: {self.like}'
